@@ -121,8 +121,8 @@ input:focus,select:focus,textarea:focus{border-color:#ceb200;box-shadow:0 0 0 4p
 @media print{.sidebar,.noprint{display:none!important}.app{display:block}main{padding:0}.card{box-shadow:none;break-inside:avoid}}
 </style>
 <script>
-// Build freshness guard: current build V10.73, future deploys are detected even from an iOS Home Screen shortcut.
-window.NICHIOKA_BUILD='10.73';
+// Build freshness guard: current build V10.75, future deploys are detected even from an iOS Home Screen shortcut.
+window.NICHIOKA_BUILD='10.75';
 (function buildWatcher(){
   if(!/^https?:$/.test(location.protocol))return;
   const RELOAD_KEY='nichioka_last_reload_build';
@@ -210,10 +210,11 @@ window.NICHIOKA_BUILD='10.73';
 </div>
 <div class="app hidden" id="mainApp">
 <aside class="sidebar">
- <div class="logo"><img src="nichioka-symbol-clean.png?v=1000" alt="Logo"><div><div class="logo-word">Clínica Exemplo</div><div class="logo-sub">OUTCOMES • V10.73 &middot; 09/09/26</div></div></div>
+ <div class="logo"><img src="nichioka-symbol-clean.png?v=1000" alt="Logo"><div><div class="logo-word">Clínica Exemplo</div><div class="logo-sub">OUTCOMES • V10.75 &middot; 09/09/26</div></div></div>
  <div style="margin-top:14px;padding:12px;border-radius:14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08)">
   <label style="font-size:11px;color:#b7b8b4;text-transform:uppercase;letter-spacing:.06em;font-weight:800">Fisioterapeuta ativo</label>
   <select id="activeTherapistSelect" onchange="setActiveTherapist(this.value)" style="margin-top:6px;width:100%;background:rgba(255,255,255,.06);color:#fff;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:9px 10px"><option value="" style="color:#232427;background:#fff">Todos (sem filtro)</option></select>
+  <button type="button" onclick="openTherapistsModal()" style="margin-top:8px;background:none;border:0;color:#f2d000;font-size:12px;font-weight:800;cursor:pointer;padding:0">Gerenciar equipe</button>
  </div>
  <div class="nav">
   <button class="active" data-view="dashboard">Visão geral</button>
@@ -324,12 +325,20 @@ window.NICHIOKA_BUILD='10.73';
  </div>
 </div>
 
+<div class="modal hidden" id="therapistsModal">
+ <div class="modalbox" style="width:min(520px,100%)">
+  <div class="modalhead"><div><div class="eyebrow">Equipe</div><h2>Gerenciar fisioterapeutas</h2></div><button class="btn ghost" onclick="closeTherapistsModal()">✕</button></div>
+  <div class="info">Fisioterapeutas inativos somem das listas de seleção, mas os registros que já fizeram continuam no histórico normalmente.</div>
+  <div class="row" style="margin-top:16px;gap:8px"><input id="newTherapistName" placeholder="Nome completo" style="flex:1"><button class="btn" onclick="addTherapist()">Adicionar</button></div>
+  <div id="therapistsList" style="margin-top:16px;display:flex;flex-direction:column;gap:8px"></div>
+ </div>
+</div>
 <div class="modal hidden" id="remoteLinkModal">
  <div class="modalbox" style="width:min(620px,100%)">
   <div class="modalhead"><div><div class="eyebrow">Aplicação à distância</div><h2>Gerar link temporário</h2></div><button class="btn ghost" onclick="closeRemoteLinkModal()">✕</button></div>
-  <div class="info">O link fica vinculado a este paciente e ao questionário escolhido. Ao responder, o resultado entra automaticamente no histórico e no gráfico do mesmo instrumento.</div>
+  <div class="info">O link fica vinculado a este paciente. Marque um ou mais questionários — o paciente responde todos em sequência, e cada resultado entra automaticamente no histórico e no gráfico do instrumento correspondente.</div>
+  <div style="margin-top:16px"><label>Questionários</label><div id="remoteInstrumentChoices" style="display:flex;flex-direction:column;gap:6px;margin-top:6px"></div></div>
   <div class="formgrid" style="margin-top:16px">
-   <div><label>Questionário</label><select id="remoteInstrument"></select></div>
    <div><label>Validade</label><select id="remoteExpiry"><option value="24">24 horas</option><option value="48" selected>48 horas</option><option value="168">7 dias</option></select></div>
   </div>
   <div class="row" style="justify-content:flex-end;margin-top:18px"><button class="btn ghost" onclick="closeRemoteLinkModal()">Cancelar</button><button class="btn" onclick="generateRemoteLink()">Gerar link</button></div>
@@ -585,6 +594,7 @@ const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 let patients=JSON.parse(localStorage.getItem(KP)||'[]').map(p=>{const {code,...rest}=p;return rest});
 let results=JSON.parse(localStorage.getItem(KR)||'[]');
 let physicalTests=JSON.parse(localStorage.getItem(KT)||'[]');
+let therapists=JSON.parse(localStorage.getItem('nichioka_therapists_v1')||'[]');
 let deletedPatientIds=new Set(JSON.parse(localStorage.getItem(KD)||'[]'));
 let cloudUserId=null, cloudReady=false, syncTimer=null;
 let editingPatient=null,currentPatient=null,currentPhysicalTestId=null,editingPhysicalTestId=null,reevalFilter='all';
@@ -657,8 +667,8 @@ async function syncToCloud(){
  }catch(e){console.error(e);setCloudState('Erro de sincronização');}
 }
 async function loadCloud(){
- const [{data:ps,error:pe},{data:as,error:ae},{data:rs,error:re},ptResp]=await Promise.all([
-  sb.from('patients').select('*').order('created_at'),sb.from('patient_questionnaires').select('*'),sb.from('assessments').select('*').order('assessment_date'),sb.from('physical_tests').select('*').order('test_date')]);
+ const [{data:ps,error:pe},{data:as,error:ae},{data:rs,error:re},ptResp,thResp]=await Promise.all([
+  sb.from('patients').select('*').order('created_at'),sb.from('patient_questionnaires').select('*'),sb.from('assessments').select('*').order('assessment_date'),sb.from('physical_tests').select('*').order('test_date'),sb.from('therapists').select('*').order('name')]);
  if(pe||ae||re)throw(pe||ae||re);
  if((ps||[]).length===0 && patients.length){
   if(confirm(`Há ${patients.length} paciente(s) salvos neste navegador. Deseja migrá-los agora para a nuvem?`)){await migrateLocal();return loadCloud()}
@@ -686,7 +696,8 @@ async function loadCloud(){
   const pendingIds=new Set(localPending.map(t=>t.id));
   physicalTests=[...cloudTests.filter(t=>!pendingIds.has(t.id)),...localPending];
  }
- localStorage.setItem(KP,JSON.stringify(patients));localStorage.setItem(KR,JSON.stringify(results));localStorage.setItem(KT,JSON.stringify(physicalTests));
+ if(!thResp.error)therapists=(thResp.data||[]).map(t=>({id:t.id,name:t.name,active:t.active!==false}));
+ localStorage.setItem(KP,JSON.stringify(patients));localStorage.setItem(KR,JSON.stringify(results));localStorage.setItem(KT,JSON.stringify(physicalTests));localStorage.setItem('nichioka_therapists_v1',JSON.stringify(therapists));
  cloudReady=true;setCloudState(patients.some(p=>p._syncStatus==='pending')?'Pendente de sincronização':'Sincronizado');
  populateActiveTherapistSelect();syncActiveTherapistFilters();renderDashboard();renderPatients();
  setTimeout(offerDraftRestore,400);
@@ -695,13 +706,13 @@ async function loadCloud(){
 function getActiveTherapist(){return localStorage.getItem('nichioka_active_therapist')||''}
 function populateActiveTherapistSelect(){
  const sel=document.getElementById('activeTherapistSelect');if(!sel)return;
- sel.innerHTML='<option value="" style="color:#232427;background:#fff">Todos (sem filtro)</option>'+THERAPISTS.map(t=>`<option value="${esc(t)}" style="color:#232427;background:#fff">${esc(t)}</option>`).join('');
+ sel.innerHTML='<option value="" style="color:#232427;background:#fff">Todos (sem filtro)</option>'+activeTherapistNames().map(t=>`<option value="${esc(t)}" style="color:#232427;background:#fff">${esc(t)}</option>`).join('');
  sel.value=getActiveTherapist();
 }
 function fillTherapistOptions(sel,placeholder){
  if(!sel)return;
  const cur=sel.value;
- sel.innerHTML=`<option value="">${placeholder}</option>`+THERAPISTS.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
+ sel.innerHTML=`<option value="">${placeholder}</option>`+activeTherapistNames().map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
  sel.value=cur;
 }
 function syncActiveTherapistFilters(){
@@ -856,12 +867,40 @@ function statusBadge(i){if(i.status==='overdue')return`<span class="badge bad">A
 function allDueRows(){let rows=[];patients.filter(p=>(p.status||'active')!=='discharged').forEach(p=>assignmentsFor(p).forEach(a=>rows.push({p,a,info:dueInfo(p,a)})));return rows.sort((x,y)=>x.info.due.localeCompare(y.info.due))}
 
 const DX_LABELS={lombar:'Dor / cirurgia lombar',cervical:'Dor cervical',lca:'Reconstrução do LCA'};
-const THERAPISTS=[];
+function activeTherapistNames(){return therapists.filter(t=>t.active).map(t=>t.name).sort((a,b)=>a.localeCompare(b,'pt-BR'))}
 function populateTherapistSelect(){
  const sel=document.getElementById('pTherapist');if(!sel)return;
  const current=sel.value;
- sel.innerHTML='<option value="">Não atribuído</option>'+THERAPISTS.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
+ sel.innerHTML='<option value="">Não atribuído</option>'+activeTherapistNames().map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
  sel.value=current;
+}
+function refreshTherapistSelects(){populateActiveTherapistSelect();syncActiveTherapistFilters();populateTherapistSelect()}
+function openTherapistsModal(){renderTherapistsModal();document.getElementById('newTherapistName').value='';therapistsModal.classList.remove('hidden')}
+function closeTherapistsModal(){therapistsModal.classList.add('hidden')}
+function renderTherapistsModal(){
+ const sorted=[...therapists].sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'));
+ therapistsList.innerHTML=sorted.length?sorted.map(t=>`<div class="row space" style="align-items:center;padding:8px 0;border-bottom:1px solid var(--line)"><span>${esc(t.name)}${!t.active?' <span class="badge">Inativo</span>':''}</span><button type="button" class="btn ghost" style="padding:6px 12px" onclick="toggleTherapistActive('${t.id}',${!t.active})">${t.active?'Desativar':'Reativar'}</button></div>`).join(''):'<div class="empty">Nenhum fisioterapeuta cadastrado ainda.</div>';
+}
+async function addTherapist(){
+ const name=document.getElementById('newTherapistName').value.trim();if(!name)return;
+ if(therapists.some(t=>t.name.toLowerCase()===name.toLowerCase())){alert('Já existe um fisioterapeuta com esse nome.');return}
+ try{
+  const user=await getCurrentCloudUser();
+  const row={owner_id:user.id,name,active:true};
+  const {data,error}=await sb.from('therapists').insert(row).select('*').single();if(error)throw error;
+  therapists.push({id:data.id,name:data.name,active:true});
+  localStorage.setItem('nichioka_therapists_v1',JSON.stringify(therapists));
+  document.getElementById('newTherapistName').value='';
+  renderTherapistsModal();refreshTherapistSelects();
+ }catch(e){console.error(e);alert('Não foi possível adicionar. Detalhe: '+e.message)}
+}
+async function toggleTherapistActive(id,newActive){
+ try{
+  const {error}=await sb.from('therapists').update({active:newActive}).eq('id',id);if(error)throw error;
+  const t=therapists.find(x=>x.id===id);if(t)t.active=newActive;
+  localStorage.setItem('nichioka_therapists_v1',JSON.stringify(therapists));
+  renderTherapistsModal();refreshTherapistSelects();
+ }catch(e){console.error(e);alert('Não foi possível atualizar. Detalhe: '+e.message)}
 }
 const DX_BATTERIES={lombar:['ODI','EVA','PSFS'],cervical:['NDI','EVA','PSFS'],lca:['IKDC','ACLRSI']};
 function diagnosisKey(dx){return Object.entries(DX_LABELS).find(([,v])=>v===dx)?.[0]||'outro'}
@@ -1963,22 +2002,25 @@ function prepareReevalBattery(pid,ks){
  updateBatteryHelp()
 }
 
+const REMOTE_LINK_EXCLUDE=new Set(['NOCICRIT']); // checklists preenchidos pelo fisioterapeuta, não fazem sentido por link ao paciente
 function openRemoteLinkModal(){
  const p=patients.find(x=>x.id===currentPatient);if(!p){alert('Abra primeiro a ficha do paciente.');return}
- const as=assignmentsFor(p);if(!as.length){alert('Este paciente não possui questionários atribuídos.');return}
- remoteInstrument.innerHTML=as.map(a=>`<option value="${a.q}">${qInfo(a.q).name||a.q}</option>`).join('');
+ const assigned=new Set(assignmentsFor(p).map(a=>a.q));
+ const all=Object.keys(Q).filter(k=>!REMOTE_LINK_EXCLUDE.has(k));
+ remoteInstrumentChoices.innerHTML=all.map(k=>`<label class="testChoice"><input type="checkbox" class="remoteInstrumentCheck" value="${k}"${assigned.has(k)?' checked':''}> ${qInfo(k).name}${assigned.has(k)?' <span class="badge good">Agendado</span>':''}</label>`).join('');
  remoteExpiry.value='48';remoteLinkResult.classList.add('hidden');remoteLinkText.value='';remoteLinkModal.classList.remove('hidden');
 }
 function closeRemoteLinkModal(){remoteLinkModal.classList.add('hidden')}
 async function generateRemoteLink(){
- const p=patients.find(x=>x.id===currentPatient),k=remoteInstrument.value,hours=Number(remoteExpiry.value)||48;
- if(!p||!k)return;
+ const p=patients.find(x=>x.id===currentPatient),keys=[...document.querySelectorAll('.remoteInstrumentCheck:checked')].map(c=>c.value),hours=Number(remoteExpiry.value)||48;
+ if(!p||!keys.length){alert('Selecione ao menos um questionário.');return}
  try{
-  const {data,error}=await sb.rpc('create_questionnaire_invite',{p_patient_id:p.id,p_questionnaire_key:k,p_expires_hours:hours});if(error)throw error;
+  const {data,error}=await sb.rpc('create_questionnaire_invite',{p_patient_id:p.id,p_questionnaire_keys:keys,p_expires_hours:hours});if(error)throw error;
   const row=Array.isArray(data)?data[0]:data;if(!row?.token)throw new Error('Token não retornado pelo servidor.');
   const base=location.origin+location.pathname;const url=`${base}?q=${encodeURIComponent(row.token)}`;
-  remoteLinkText.value=url;remoteLinkMeta.textContent=`${qInfo(k).name||k} • válido até ${new Date(row.expires_at).toLocaleString('pt-BR')}`;remoteLinkResult.classList.remove('hidden');
- }catch(e){console.error(e);alert('Não foi possível gerar o link. Rode primeiro o arquivo SQL da V9.17 no Supabase.\n\nDetalhe: '+e.message)}
+  const label=keys.length===1?(qInfo(keys[0]).name||keys[0]):`${keys.length} questionários`;
+  remoteLinkText.value=url;remoteLinkMeta.textContent=`${label} • válido até ${new Date(row.expires_at).toLocaleString('pt-BR')}`;remoteLinkResult.classList.remove('hidden');
+ }catch(e){console.error(e);alert('Não foi possível gerar o link. Confira se o SQL de convites por link já foi executado no Supabase.\n\nDetalhe: '+e.message)}
 }
 async function copyRemoteLink(){
  const text=remoteLinkText.value;if(!text)return;try{await navigator.clipboard.writeText(text);remoteLinkMeta.textContent+=' • Link copiado';}catch(e){remoteLinkText.select();document.execCommand('copy');remoteLinkMeta.textContent+=' • Link copiado';}
@@ -1993,38 +2035,41 @@ async function loadPublicInvite(token){
  try{
   const {data,error}=await sb.rpc('get_questionnaire_invite',{p_token:token});if(error)throw error;
   const row=Array.isArray(data)?data[0]:data;if(!row){publicStatus.className='notice';publicStatus.textContent='Este link é inválido, expirou ou já foi utilizado.';return}
-  publicInvite=row;const k=row.questionnaire_key;if(!Q[k])throw new Error('Questionário não reconhecido.');
-  publicStatus.classList.add('hidden');publicQuestionnaire.classList.remove('hidden');publicTitle.textContent=qInfo(k).name+' — questionário';publicSubtitle.textContent=`${row.patient_name} • resposta de ${new Date().toLocaleDateString('pt-BR')}`;publicFormBody.innerHTML=buildQuestionnaire(k);
+  publicInvite=row;
+  const pending=(row.questionnaire_keys||[]).filter(k=>!(row.completed_keys||[]).includes(k));
+  const k=pending[0];
+  if(!k){publicStatus.className='info';publicStatus.innerHTML='<strong>Tudo respondido.</strong> Obrigado, todos os questionários deste link já foram preenchidos.';publicStatus.classList.remove('hidden');return}
+  if(!Q[k])throw new Error('Questionário não reconhecido.');
+  const total=(row.questionnaire_keys||[]).length,done=total-pending.length;
+  publicStatus.classList.add('hidden');publicQuestionnaire.classList.remove('hidden');
+  publicTitle.textContent=qInfo(k).name+' — questionário';
+  publicSubtitle.textContent=`${row.patient_name}${total>1?` • questionário ${done+1} de ${total}`:''} • resposta de ${new Date().toLocaleDateString('pt-BR')}`;
+  publicFormBody.innerHTML=buildQuestionnaire(k);
  }catch(e){console.error(e);publicStatus.className='notice';publicStatus.textContent='Não foi possível abrir este link. Ele pode ter expirado ou ainda não estar habilitado no sistema.';}
 }
-function collectPublicResult(k){
- let score=null,raw=null,answers={source:'remote_link'};
- if(k==='EVA'){
-  const v=checkedVal('EVA_FORM');if(v===null){alert('Selecione uma nota de 0 a 10.');return null}score=Number(v);raw=score;answers.value=score;
- }else if(k==='PSFS'){
-  if(document.getElementById('PSFS_NONE')?.checked){return{score:null,answers:{status:'not_applicable',reason:'no_functional_limitation',source:'remote_link'},note:'Não aplicada — paciente não relatou atividade com dificuldade por causa deste problema.'}}
-  const acts=[];for(let i=1;i<=3;i++){const name=document.getElementById('PSFS_NAME_'+i)?.value.trim(),v=checkedVal('PSFS_SCORE_'+i);if(name&&v!==null)acts.push({activity:name,score:Number(v)})}
-  if(!acts.length){alert('Preencha ao menos uma atividade e sua nota, ou marque que não há atividade com dificuldade.');return null}score=Math.round((acts.reduce((s,a)=>s+a.score,0)/acts.length)*10)/10;raw=score;answers={activities:acts,source:'remote_link'};
- }else if(k==='NDI'||k==='ODI'){
-  const n=FORMS[k].sections.length,sections=[];let sum=0,answered=0;for(let i=0;i<n;i++){const v=checkedVal(`${k}_${i}`);if(v===null){alert(`Responda a seção ${i+1}.`);return null}sections.push(v);if(v!=='NA'){sum+=Number(v);answered++}}
-  if(!answered){alert('Não há respostas suficientes para calcular.');return null}raw=sum;score=sum/(answered*5)*100;answers={sections,raw,source:'remote_link'};
- }else if(k==='ACLRSI'){
-  let sum=0;const vals=[],reverse=new Set([1,2,5,6,8,9]);for(let i=0;i<12;i++){const v=checkedVal(`ACL_${i}`);if(v===null){alert(`Responda a questão ${i+1}.`);return null}const x=Number(v);vals.push(x);sum+=reverse.has(i)?10-x:x}raw=sum;score=sum/120*100;answers={responses:vals,raw,source:'remote_link'};
- }else if(k==='IKDC'){
-  const v1=checkedVal('IK_1'),v2=checkedVal('IK_2'),v3=checkedVal('IK_3'),v4=checkedVal('IK4_0'),v5=checkedVal('IK_5'),v6=checkedVal('IK_6'),v7=checkedVal('IK_7'),v8=checkedVal('IK_8');
-  const base=[v1,v2,v3,v4,v5,v6,v7,v8];if(base.some(v=>v===null)){alert('Responda todas as questões 1 a 8.');return null}
-  let sum=Number(v1)+(10-Number(v2))+(10-Number(v3))+(4-Number(v4))+Number(v5)+Number(v6)+Number(v7)+Number(v8);const q9=[];
-  for(let i=0;i<9;i++){const v=checkedVal(`IK_9_${i}`);if(v===null){alert('Responda todos os itens da questão 9.');return null}q9.push(Number(v));sum+=Number(v)}
-  const prior=checkedVal('IK_10a'),cur=checkedVal('IK_10b');if(prior===null||cur===null){alert('Responda as duas escalas da questão 10.');return null}sum+=Number(cur);raw=sum;score=sum/87*100;answers={q1:Number(v1),q2:Number(v2),q3:Number(v3),q4:Number(v4),q5:Number(v5),q6:Number(v6),q7:Number(v7),q8:Number(v8),q9,prior:Number(prior),current:Number(cur),raw,source:'remote_link'};
- }else{return null}
- return{score:score==null?null:Math.round(score*10)/10,answers,note:`Questionário respondido por link temporário${raw!=null?' • bruto: '+raw:''}`};
-}
 async function submitPublicQuestionnaire(){
- if(!publicInvite||!publicToken)return;const k=publicInvite.questionnaire_key,res=collectPublicResult(k);if(!res)return;
+ if(!publicInvite||!publicToken)return;
+ const pending=(publicInvite.questionnaire_keys||[]).filter(x=>!(publicInvite.completed_keys||[]).includes(x));
+ const k=pending[0];if(!k)return;
+ const res=calculateQuestionnaireResult(k);if(!res)return;
  publicSubmitBtn.disabled=true;publicSubmitBtn.textContent='Enviando…';
  try{
-  const {data,error}=await sb.rpc('submit_questionnaire_invite',{p_token:publicToken,p_score:res.score,p_answers:res.answers,p_note:res.note});if(error)throw error;
-  publicFormBody.innerHTML='';publicSubmitBtn.closest('.stickySave')?.classList.add('hidden');publicSubtitle.textContent='';publicTitle.textContent='Resposta enviada';publicStatus.className='info';publicStatus.innerHTML='<strong>Obrigado.</strong> Sua resposta foi registrada com sucesso e já está disponível para acompanhamento na clínica.';publicStatus.classList.remove('hidden');
+  const note=`Questionário respondido por link temporário${res.answers?.raw!=null?' • bruto: '+res.answers.raw:''}`;
+  const {data,error}=await sb.rpc('submit_questionnaire_invite',{p_token:publicToken,p_questionnaire_key:k,p_score:res.score,p_answers:res.answers,p_note:note});if(error)throw error;
+  const row=Array.isArray(data)?data[0]:data;
+  if(row?.all_done){
+   publicFormBody.innerHTML='';publicSubmitBtn.closest('.stickySave')?.classList.add('hidden');publicSubtitle.textContent='';publicTitle.textContent='Resposta enviada';publicStatus.className='info';publicStatus.innerHTML='<strong>Obrigado.</strong> Suas respostas foram registradas com sucesso e já estão disponíveis para acompanhamento na clínica.';publicStatus.classList.remove('hidden');
+  }else{
+   publicInvite.completed_keys=[...(publicInvite.completed_keys||[]),k];
+   const nextPending=(publicInvite.questionnaire_keys||[]).filter(x=>!(publicInvite.completed_keys||[]).includes(x));
+   const nk=nextPending[0];
+   const total=(publicInvite.questionnaire_keys||[]).length,done=total-nextPending.length;
+   publicTitle.textContent=qInfo(nk).name+' — questionário';
+   publicSubtitle.textContent=`${publicInvite.patient_name} • questionário ${done+1} de ${total} • resposta de ${new Date().toLocaleDateString('pt-BR')}`;
+   publicFormBody.innerHTML=buildQuestionnaire(nk);
+   publicSubmitBtn.disabled=false;publicSubmitBtn.textContent='Enviar respostas';
+   window.scrollTo(0,0);
+  }
  }catch(e){console.error(e);alert('Não foi possível enviar. O link pode ter expirado ou já ter sido utilizado.');publicSubmitBtn.disabled=false;publicSubmitBtn.textContent='Enviar respostas';}
 }
 
