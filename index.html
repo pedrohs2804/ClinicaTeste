@@ -2184,6 +2184,27 @@ function reportEvolutionInfo(k,s){
 
 function pdfDate(v){return v?fmt(v):'—'}
 function pdfDateShort(v){return v?parseDate(v).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'—'}
+// Salva o PDF de um jeito confiável em celular: usa o compartilhamento
+// nativo do sistema (Arquivos, AirDrop, WhatsApp, E-mail etc.) quando
+// disponível, em vez de depender só da pré-visualização temporária do
+// navegador — que dá erro se alguém tenta reabri-la depois (por exemplo,
+// pela Lista de Leitura do Safari, que não funciona com esse tipo de
+// prévia passageira). Em computador, onde não existe esse compartilhamento
+// nativo, continua baixando o arquivo normalmente.
+async function savePDF(doc, filename) {
+ try {
+  const blob = doc.output('blob');
+  const file = new File([blob], filename, { type: 'application/pdf' });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+   await navigator.share({ files: [file], title: filename });
+   return;
+  }
+ } catch (e) {
+  if (e && e.name === 'AbortError') return; // usuário cancelou o compartilhamento de propósito — não força um download por cima
+  console.error('Não foi possível compartilhar o PDF nativamente, baixando o arquivo:', e);
+ }
+ doc.save(filename);
+}
 function pdfClean(v){
  // As fontes padrão do jsPDF não cobrem alguns símbolos: troca por equivalentes.
  return String(v??'')
@@ -2569,7 +2590,7 @@ async function generateACLDischargePDF(therapistName='',crefito='',opinion=''){
   y=noteBox(y,'O que o resultado indica: o mais importante não é o quanto você alcança, e sim o quanto os dois lados se parecem. Quando a diferença entre as pernas é pequena, o risco de nova lesão tende a ser menor, porque o corpo distribui a carga de forma equilibrada. Diferenças maiores costumam apontar onde o treino ainda precisa evoluir. É uma tendência observada em grupos de atletas, não uma previsão individual: um bom resultado não garante ausência de lesão, nem uma diferença impede o retorno ao esporte quando os outros critérios estão bons.',pale,'Y-BALANCE TEST — CONTINUAÇÃO');
  }
  cover();infoPage();objective();criteria();if(ik)questionnairePage('IKDC',ik);if(ar)questionnairePage('ACLRSI',ar);romPage();if(pt?.isometric?.__isokinetic)isokPage();else forcePage();forceEvolutionPage();hopsPage();yBalancePage();finalPage();isokAttachment();pageNo();
- const safe=(p.name||'paciente').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'-').slice(0,50);doc.save(`Alta-LCA-${safe}-${today()}.pdf`)
+ const safe=(p.name||'paciente').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'-').slice(0,50);await savePDF(doc,`Alta-LCA-${safe}-${today()}.pdf`)
 }
 
 
@@ -2708,7 +2729,7 @@ async function generateAnkleDischargePDF(therapistName='',crefito='',opinion='')
   }
  }
  y=newPage('PARECER FINAL','Síntese para apoiar a decisão compartilhada de alta e retorno ao esporte.');const pending=failed.map(x=>x.item).join(', ');y=box(y,'Resultado objetivo',overall?'Não foram identificadas pendências entre os critérios que possuem referência classificável nesta bateria. Isso não significa “risco zero” nem substitui o julgamento clínico.':`Foram identificadas pendências em: ${pending||'domínios clínicos'}. Recomenda-se abordar e reavaliar esses pontos antes de retorno irrestrito quando forem relevantes à demanda do atleta.`,overall?okFill:badFill);if(opinion)y=box(y,'Observações do fisioterapeuta',opinion,soft);if(therapistLine){doc.setDrawColor(190);doc.line(M,258,M+82,258);doc.setFontSize(8.5);doc.setTextColor(...mid);doc.text(pdfClean(therapistLine),M,264)}
- const safe=(p.name||'paciente').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'-').slice(0,50);doc.save(`Alta-Tornozelo-${safe}-${today()}.pdf`)
+ const safe=(p.name||'paciente').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'-').slice(0,50);await savePDF(doc,`Alta-Tornozelo-${safe}-${today()}.pdf`)
 }
 
 async function generateFallDischargePDF(therapistName='',crefito='',opinion=''){
@@ -2747,7 +2768,7 @@ async function generateFallDischargePDF(therapistName='',crefito='',opinion=''){
  y=newPage('O QUE CADA ITEM AVALIA','Interpretação clínica resumida e significado de não alcançar a referência.');
  for(const r of rows){const text=`O que avalia: ${r.meaning}  Se não alcançar: ${r.ifFail}${r.note?'  Observação: '+r.note:''}`;const lines=doc.splitTextToSize(pdfClean(text),CW-12),h=Math.max(27,lines.length*4.25+16);if(y+h>266)y=newPage('O QUE CADA ITEM AVALIA – CONTINUAÇÃO');const accent=r.ok===false?[196,73,73]:r.ok===true?[85,165,82]:[242,184,0];doc.setFillColor(...(r.ok===false?badFill:soft));doc.setDrawColor(224);doc.roundedRect(M,y,CW,h,4,4,'FD');doc.setFillColor(...accent);doc.roundedRect(M,y,2.2,h,1.1,1.1,'F');doc.setFont('helvetica','bold');doc.setFontSize(9.5);doc.setTextColor(...dark);doc.text(r.item,M+9,y+8);doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(...mid);doc.text(lines,M+9,y+15);y+=h+5}
  y=newPage('PARECER FINAL','Síntese, plano de conduta e reavaliação sugerida.');const pending=failed.map(x=>x.item).join(', ');y=box(y,'Resultado objetivo',overall?'Não foram identificadas pendências entre os critérios classificáveis desta bateria. Isso não significa "risco zero" nem substitui o julgamento clínico.':`Foram identificadas pendências em: ${pending||'domínios clínicos'}. Recomenda-se abordar esses pontos e reavaliar conforme o plano de conduta.`,overall?okFill:badFill);y=box(y,'Plano de conduta',f.plan||'Não informado.',soft);y=box(y,'Reavaliação sugerida',f.reevalMonths?`Em aproximadamente ${f.reevalMonths} meses.`:'Não informado.',pale);if(opinion)y=box(y,'Observações do fisioterapeuta',opinion,soft);if(therapistLine){doc.setDrawColor(190);doc.line(M,258,M+82,258);doc.setFontSize(8.5);doc.setTextColor(...mid);doc.text(pdfClean(therapistLine),M,264)}
- const safe=(p.name||'paciente').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'-').slice(0,50);doc.save(`Alta-Risco-Queda-${safe}-${today()}.pdf`)
+ const safe=(p.name||'paciente').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'-').slice(0,50);await savePDF(doc,`Alta-Risco-Queda-${safe}-${today()}.pdf`)
 }
 
 async function generateFreeReportPDF(therapistName='',crefito='',opinion=''){
@@ -2854,7 +2875,7 @@ async function generateFreeReportPDF(therapistName='',crefito='',opinion=''){
  if(opinion)y=box(y,'Observações do fisioterapeuta',opinion,soft);
  if(therapistLine){if(y>H-40)y=newPage('ASSINATURA');doc.setDrawColor(190);doc.line(M,Math.min(y+14,H-33),M+82,Math.min(y+14,H-33));doc.setFontSize(8.5);doc.setTextColor(...mid);doc.text(pdfClean(therapistLine),M,Math.min(y+20,H-27))}
  const safe=(p.name||'paciente').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'-').slice(0,50);
- doc.save(`Avaliacao-Fisica-${safe}-${today()}.pdf`)
+ await savePDF(doc,`Avaliacao-Fisica-${safe}-${today()}.pdf`)
 }
 
 async function generateOADischargePDF(therapistName='',crefito='',opinion=''){
@@ -2929,7 +2950,7 @@ async function generateOADischargePDF(therapistName='',crefito='',opinion=''){
  y=box(y,'Base de conduta','As diretrizes atuais para osteoartrite de joelho colocam exercício terapêutico, educação do paciente e controle de peso como intervenções de primeira linha, independentemente do grau radiográfico. Medidas farmacológicas e cirúrgicas são complementares e devem ser discutidas com a equipe médica.',pale);
  if(opinion)y=box(y,'Observações do fisioterapeuta',opinion,soft);
  if(therapistLine){doc.setDrawColor(190);doc.line(M,258,M+82,258);doc.setFontSize(8.5);doc.setTextColor(...mid);doc.text(pdfClean(therapistLine),M,264)}
- const safe=(p.name||'paciente').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'-').slice(0,50);doc.save(`OA-Joelho-${safe}-${today()}.pdf`)
+ const safe=(p.name||'paciente').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'-').slice(0,50);await savePDF(doc,`OA-Joelho-${safe}-${today()}.pdf`)
 }
 
 async function generatePatientPDF(){
@@ -3236,7 +3257,7 @@ async function generatePatientPDF(){
   if(Number.isFinite(ph.dn4Score)||Number.isFinite(ph.csiScore)||Number.isFinite(ph.nocScore))y+=46;
   noteBox(y,'Rastreio de mecanismo de dor: DN4 ≥4/10 sugere componente neuropático; CSI ≥40/100 sugere sensibilização central (padrão nociplástico); ≥5/7 critérios de Smart et al. (checklist clínico do fisioterapeuta) sugere predomínio nociceptivo. Os três mecanismos podem coexistir; esta classificação é rastreio, não diagnóstico.',soft);
  }
- cover();info();objective();const keys=[...new Set([...(p.assignments||[]).map(a=>a.q),...rs.map(r=>r.instrument)])];for(const k of keys){const s=outcomeSummary(p.id,k);if(s)instrument(k,s)}painPhenotypePage();physicalPage();summary();pageNo();const safe=(p.name||'paciente').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'-').slice(0,50);doc.save(`Motion-${safe}-${today()}.pdf`)
+ cover();info();objective();const keys=[...new Set([...(p.assignments||[]).map(a=>a.q),...rs.map(r=>r.instrument)])];for(const k of keys){const s=outcomeSummary(p.id,k);if(s)instrument(k,s)}painPhenotypePage();physicalPage();summary();pageNo();const safe=(p.name||'paciente').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'-').slice(0,50);await savePDF(doc,`Motion-${safe}-${today()}.pdf`)
 }
 
 function renderLibrary(){libraryCards.innerHTML=Object.entries(Q).map(([k,q])=>`<div class="card span6"><div><span class="badge yellow">${q.area}</span></div><h2 style="margin-top:12px">${q.name}</h2><p>${q.full}</p><div class="instrument"><div><strong>Estrutura:</strong> ${q.items}</div><div><strong>Pontuação:</strong> ${q.scoring}</div><div style="margin-top:8px"><strong>Interpretação:</strong> ${interpretation(k,k==='EVA'?5:k==='PSFS'?5:k==='NDI'?30:k==='ODI'?30:50)}</div></div><div class="small">${q.ref}</div></div>`).join('')}
