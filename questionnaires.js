@@ -27,8 +27,6 @@ const FORMS={
  ]}
 };
 
-// WOMAC — estrutura de aplicação (Likert 0–4 por item, 24 itens em 3 subescalas).
-// Escala de resposta comum a todos os itens.
 const WOMAC_SCALE=['Nenhuma','Pouca','Moderada','Intensa','Muito intensa'];
 const WOMAC_STRUCTURE={
  pain:{label:'Dor',prompt:'Qual a intensidade da sua dor no joelho ao…',items:['Caminhar em superfície plana','Subir ou descer escadas','À noite, deitado na cama','Sentado ou deitado','Ficar em pé']},
@@ -38,11 +36,7 @@ const WOMAC_STRUCTURE={
 
 function checkedVal(name){const e=document.querySelector(`input[name="${name}"]:checked`);return e?e.value:null}
 
-// ---- VISA (P/H/G/A): questão 8 é sempre uma escolha entre três sub-blocos (A, B ou C),
-// dependendo se o paciente sente dor ao praticar esporte e se essa dor o impede ou não.
-// Só o sub-bloco escolhido é preenchido; os outros dois ficam ocultos.
 function visaGate(prefix,gateLabel,branches){
- // branches = [{key:'A',label,opts,vals}, {key:'B',...}, {key:'C',...}]
  const gate=`<div class="qsection"><h3>8. ${gateLabel}</h3><div class="qoptions">${branches.map(b=>
   `<label class="qoption"><input type="radio" name="${prefix}_gate" value="${b.key}" onchange="toggleVisaBranch('${prefix}')"><span>${b.branchLabel}</span></label>`).join('')}
  </div></div>`;
@@ -53,8 +47,6 @@ function toggleVisaBranch(prefix){
  const g=checkedVal(prefix+'_gate');
  ['A','B','C'].forEach(k=>{const el=document.getElementById(prefix+'_'+k);if(el)el.classList.toggle('hidden',g!==k)});
 }
-// Tempos de treino/prática das seções A/B/C são idênticos em pontuação no VISA-P, VISA-H e VISA-A
-// (0,7,14,21,30 / 0,4,10,14,20 / 0,2,5,7,10), variando apenas o texto dos intervalos de tempo.
 function visaScore8(prefix){
  const g=checkedVal(prefix+'_gate');
  if(!g)return null;
@@ -278,7 +270,7 @@ function calculateQuestionnaireResult(k){
   const vals=[];for(let i=0;i<24;i++){const v=checkedVal(`WOMAC_${i}`);if(v===null){alert(`Responda o item ${i+1} do WOMAC.`);return null}vals.push(Number(v))}
   const sum=a=>a.reduce((x,y)=>x+y,0);
   const pain=sum(vals.slice(0,5)),stiffness=sum(vals.slice(5,7)),fn=sum(vals.slice(7,24)),raw=pain+stiffness+fn;
-  const pct=v=>Math.round(v*1000)/10; // v é fração (0–1) → percentual com 1 casa
+  const pct=v=>Math.round(v*1000)/10;
   const subscales={pain:{raw:pain,max:20,pct:pct(pain/20)},stiffness:{raw:stiffness,max:8,pct:pct(stiffness/8)},function:{raw:fn,max:68,pct:pct(fn/68)}};
   const score=Math.round(raw/96*1000)/10,side=document.getElementById('WOMAC_SIDE')?.value||'';
   return{score,answers:{responses:vals,raw,subscales,side,source:'form'}}
