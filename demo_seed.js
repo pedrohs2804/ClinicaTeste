@@ -128,7 +128,33 @@ const DEMO_PHYSICAL_TESTS = [
       triple: _hopGroup([410, 415, 405], [395, 400, 392], 'Direito'),
       crossover: _hopGroup([380, 385, 378], [365, 370, 362], 'Direito') },
     rom: { __used: true, __protocol: 'lca', __selected: ['kneeFlex', 'kneeExt'], flexion: { right: 138, left: 140, difference: 2 }, extension: { right: 0, left: 0, difference: 0 }, ybalance: { __used: false } },
-    notes: 'Paciente apta para retorno ao esporte — critérios de força e desempenho atingidos.', created: '2026-10-10T10:00:00.000Z', _updatedAt: '2026-10-10T10:00:00.000Z', _syncStatus: 'synced', _syncError: '', _cloudExists: false }
+    notes: 'Paciente apta para retorno ao esporte — critérios de força e desempenho atingidos.', created: '2026-10-10T10:00:00.000Z', _updatedAt: '2026-10-10T10:00:00.000Z', _syncStatus: 'synced', _syncError: '', _cloudExists: false },
+
+  // Antonio Ribeiro — bateria de risco de queda (idoso, 78 anos)
+  { id: 'demo-pt4', patientId: 'demo-p6', date: '2026-09-03', therapist: 'Camila Ortiz', forceUnit: 'kgf', isPreOp: false,
+    isometric: { __selected: [] },
+    hops: { __selected: [] },
+    rom: { __used: false, __protocol: 'fall',
+      fall: {
+        used: { miniBest: true, mctsib: false, sts5: true, tug: true, dualTask: false, reach: false, singleLeg: false, gaitSpeed: true },
+        miniBest: { items: [2,1,1, 1,2,1, 2,1,1, 2,1,2,1,1], total: 19, raw3: null, raw6: null,
+          domains: { anticipatory: 4, reactive: 4, sensory: 4, gait: 7 } },
+        mctsib: { conditions: [null, null, null, null] },
+        sts5: 16.2,
+        tug: { simple: 13.5, dual: null },
+        dualTask: { singleSpeed: null, dualSpeed: null, errors: null },
+        reach: null,
+        singleLeg: { right: null, left: null },
+        gaitSpeed: 0.74,
+        neuro: { gaitAnalysis: 'Marcha lentificada, base alargada, redução do balanço de braço à direita.', reflexes: { patellar: { right: '+', left: '+' }, achilles: { right: '+', left: '+' } }, loadResponse: '', loadNote: '', hallux: { right: null, left: null }, strength: { hipAbd: { right: null, left: null }, quadriceps: { right: null, left: null }, dorsiflexors: { right: null, left: null }, plantarflexors: { right: null, left: null } }, note: '' },
+        history: { count: 1, when: 'Há cerca de 2 meses', how: 'Tropeçou em tapete na sala', where: 'Em casa', injury: 'Sem fratura; escoriação leve no joelho', riseAlone: 'no', floorTime: 'Cerca de 10 minutos até conseguir apoio', lossConsciousness: 'no', fear: 8, device: 'Nenhum atualmente', medCount: 6, riskMeds: 'Anti-hipertensivo, benzodiazepínico para insônia' },
+        dizziness: { type: '', positional: '', frequency: '', duration: '', triggers: '', associated: '', thrust: '' },
+        clinicalRisk: 'high',
+        reevalMonths: '3',
+        plan: 'Treino de equilíbrio dinâmico e reativo, fortalecimento de membros inferiores, revisão medicamentosa com a equipe médica (polifarmácia) e orientação de adequação do ambiente domiciliar (retirada do tapete).'
+      }
+    },
+    notes: 'Avaliação inicial pós encaminhamento por quase-queda em casa.', created: '2026-09-03T10:00:00.000Z', _updatedAt: '2026-09-03T10:00:00.000Z', _syncStatus: 'synced', _syncError: '', _cloudExists: false }
 ];
 
 // Carrega os dados de demonstração na primeira vez que ESTA cópia da
@@ -144,7 +170,7 @@ const DEMO_PHYSICAL_TESTS = [
 // zero: no console do navegador, rode
 //   localStorage.removeItem('motion_demo_seeded_v1')
 // e recarregue a página.
-const DEMO_SEED_MARKER = 'motion_demo_seeded_v2';
+const DEMO_SEED_MARKER = 'motion_demo_seeded_v3';
 function _demoForce(key, seedArray) {
   localStorage.setItem(key, JSON.stringify(seedArray));
 }
