@@ -131,15 +131,27 @@ const DEMO_PHYSICAL_TESTS = [
     notes: 'Paciente apta para retorno ao esporte — critérios de força e desempenho atingidos.', created: '2026-10-10T10:00:00.000Z', _updatedAt: '2026-10-10T10:00:00.000Z', _syncStatus: 'synced', _syncError: '', _cloudExists: false }
 ];
 
-// Substitui os defaults vazios pelos dados de demonstração, apenas quando
-// o armazenamento local ainda não tem nada salvo (primeira vez que abre).
-function _demoDefault(key, seedArray) {
-  const existing = localStorage.getItem(key);
-  if (existing === null) {
-    localStorage.setItem(key, JSON.stringify(seedArray));
-  }
+// Carrega os dados de demonstração na primeira vez que ESTA cópia da
+// demonstração roda neste navegador — usando uma marcação própria
+// (independente do que já possa existir salvo de outros testes locais
+// no mesmo navegador, já que arquivos abertos como file:// costumam
+// compartilhar o mesmo armazenamento entre si).
+//
+// Depois da primeira vez, os dados passam a persistir normalmente
+// (edições feitas na demonstração continuam salvas ao reabrir).
+//
+// Pra forçar a demonstração a recarregar os 7 pacientes de novo do
+// zero: no console do navegador, rode
+//   localStorage.removeItem('motion_demo_seeded_v1')
+// e recarregue a página.
+const DEMO_SEED_MARKER = 'motion_demo_seeded_v2';
+function _demoForce(key, seedArray) {
+  localStorage.setItem(key, JSON.stringify(seedArray));
 }
-_demoDefault('nichioka_therapists_v1', DEMO_THERAPISTS);
-_demoDefault('fio_final_patients_v1', DEMO_PATIENTS);
-_demoDefault('fio_final_results_v1', DEMO_RESULTS);
-_demoDefault('nichioka_physical_tests_v1', DEMO_PHYSICAL_TESTS);
+if (localStorage.getItem(DEMO_SEED_MARKER) === null) {
+  _demoForce('nichioka_therapists_v1', DEMO_THERAPISTS);
+  _demoForce('fio_final_patients_v1', DEMO_PATIENTS);
+  _demoForce('fio_final_results_v1', DEMO_RESULTS);
+  _demoForce('nichioka_physical_tests_v1', DEMO_PHYSICAL_TESTS);
+  localStorage.setItem(DEMO_SEED_MARKER, '1');
+}
