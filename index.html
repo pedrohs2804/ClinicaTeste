@@ -3268,11 +3268,17 @@ initEntry=async function(){
  const token=new URLSearchParams(location.search).get('q');
  if(token){authScreen.classList.add('hidden');mainApp.classList.add('hidden');publicScreen.classList.remove('hidden');publicToken=token;await loadPublicInvite(token);return}
  publicScreen.classList.add('hidden');
- cloudUserId='demo-user';cloudReady=true;
+ cloudUserId='demo-user';cloudReady=false;
  authScreen.classList.add('hidden');mainApp.classList.remove('hidden');
  if(cloudUser)cloudUser.textContent='Modo demonstração';
  renderDashboard();
 };
+// Trava de segurança: nenhum caminho do app pode substituir os pacientes/
+// resultados locais pelos da "nuvem" simulada (que é sempre vazia no modo
+// demonstração). Isso protege os dados de demonstração mesmo que algum
+// clique dispare uma sincronização.
+loadCloud=async function(){ /* modo demonstração: nunca busca nem sobrescreve dados locais */ };
+enterApp=async function(user){ cloudUserId=user?.id||'demo-user'; if(cloudUser)cloudUser.textContent='Modo demonstração'; authScreen.classList.add('hidden'); mainApp.classList.remove('hidden'); };
 </script>
 <script>initEntry();</script>
 </body>
